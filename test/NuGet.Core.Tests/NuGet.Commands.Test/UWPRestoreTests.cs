@@ -201,7 +201,7 @@ namespace NuGet.Commands.Test
         }
 
         // Verify that File > New Project > Blank UWP App can restore without errors or warnings.
-        [Fact]
+        [Fact(Skip = "Renable after p2ps are stable")]
         public async Task UWPRestore_BlankUWPApp()
         {
             // Arrange
@@ -269,7 +269,7 @@ namespace NuGet.Commands.Test
         }
 
         // Verify that File > New Project > Class Library (Portable) can restore without errors or warnings.
-        [Fact]
+        [Fact(Skip="Renable after p2ps are stable")]
         public async Task UWPRestore_ModernPCL()
         {
             // Arrange

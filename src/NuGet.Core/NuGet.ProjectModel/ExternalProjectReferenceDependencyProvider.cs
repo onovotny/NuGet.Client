@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Linq;
 using NuGet.DependencyResolver;
 using NuGet.Frameworks;
@@ -56,21 +55,14 @@ namespace NuGet.ProjectModel
                     Type = LibraryDependencyType.Default
                 }).ToList();
 
-            // Add dependencies from the nuget.json file
-            if (!string.IsNullOrEmpty(externalProject.PackageSpecPath)
-                && File.Exists(externalProject.PackageSpecPath))
+            // Add dependencies from the project.json file
+            if (externalProject.PackageSpec != null)
             {
-                PackageSpec packageSpec;
-                using (var stream = new FileStream(externalProject.PackageSpecPath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    packageSpec = JsonPackageSpecReader.GetPackageSpec(stream, externalProject.UniqueName, externalProject.PackageSpecPath);
-                }
-
                 // Add framework-agnostic dependencies
-                dependencies.AddRange(packageSpec.Dependencies);
+                dependencies.AddRange(externalProject.PackageSpec.Dependencies);
 
                 // Add framework-specific dependencies
-                var frameworkInfo = packageSpec.GetTargetFramework(targetFramework);
+                var frameworkInfo = externalProject.PackageSpec.GetTargetFramework(targetFramework);
                 if (frameworkInfo != null)
                 {
                     dependencies.AddRange(frameworkInfo.Dependencies);
@@ -78,7 +70,7 @@ namespace NuGet.ProjectModel
             }
 
             // Construct the library and return it
-            return new Library()
+            var library = new Library()
                 {
                     Identity = new LibraryIdentity()
                         {
@@ -88,9 +80,24 @@ namespace NuGet.ProjectModel
                         },
                     LibraryRange = libraryRange,
                     Dependencies = dependencies,
-                    Path = externalProject.PackageSpecPath,
-                    Resolved = true
+                    Resolved = true,
                 };
+
+            // Set the file path if it exists, this might not have a project.json file
+            library.Path = externalProject.PackageSpec?.FilePath;
+
+            if (externalProject.MSBuildProjectPath != null)
+            {
+                library[KnownLibraryProperties.MSBuildProjectPath] = externalProject.MSBuildProjectPath;
+            }
+
+            if (externalProject.PackageSpec != null)
+            {
+                var targetFrameworkInfo = externalProject.PackageSpec.GetTargetFramework(targetFramework);
+                library[KnownLibraryProperties.TargetFrameworkInformation] = targetFrameworkInfo;
+            }
+
+            return library;
         }
     }
 }

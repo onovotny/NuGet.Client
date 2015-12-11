@@ -20,6 +20,7 @@ using VSLangProj;
 using VSLangProj80;
 using EnvDTEProject = EnvDTE.Project;
 using Threading = System.Threading.Tasks;
+using NuGet.ProjectModel;
 
 namespace NuGet.PackageManagement.VisualStudio
 {
@@ -188,11 +189,16 @@ namespace NuGet.PackageManagement.VisualStudio
                                 {
                                     childReferences.Add(possibleProjectJson);
 
+                                    var projectSpec = JsonPackageSpecReader.GetPackageSpec(
+                                        childReference.Name,
+                                        possibleProjectJson);
+
                                     // add the sdk to the results here
                                     results.Add(new BuildIntegratedProjectReference(
                                         possibleProjectJson,
-                                        possibleProjectJson,
-                                        Enumerable.Empty<string>()));
+                                        projectSpec,
+                                        msbuildProjectPath: null,
+                                        projectReferences: Enumerable.Empty<string>()));
                                 }
                             }
                         }
@@ -225,9 +231,12 @@ namespace NuGet.PackageManagement.VisualStudio
                 if (!string.Equals(rootProjectName, projectUniqueName, StringComparison.OrdinalIgnoreCase))
                 {
                     // Don't add the project we're trying to resolve the closure for to the result
+                    var packageSpec = JsonPackageSpecReader.GetPackageSpec(projectUniqueName, jsonConfigItem);
+
                     results.Add(new BuildIntegratedProjectReference(
                         projectUniqueName,
-                        jsonConfigItem,
+                        packageSpec,
+                        EnvDTEProjectUtility.GetFullPath(project),
                         childReferences));
                 }
             }

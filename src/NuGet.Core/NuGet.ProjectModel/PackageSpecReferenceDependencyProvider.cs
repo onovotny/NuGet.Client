@@ -124,8 +124,29 @@ namespace NuGet.ProjectModel
                 Path = packageSpec.FilePath,
                 Dependencies = dependencies,
                 Resolved = !unresolved,
-                [KnownLibraryProperties.PackageSpec] = packageSpec
+                [KnownLibraryProperties.PackageSpec] = packageSpec,
+                [KnownLibraryProperties.TargetFrameworkInformation] = targetFrameworkInfo
             };
+
+            // Add a compile asset for msbuild
+            if (targetFrameworkInfo.FrameworkName != null)
+            {
+                var tfmFolder = targetFrameworkInfo.FrameworkName.GetShortFolderName();
+
+                // Currently the assembly name cannot be changed for xproj, we can construct the path to where
+                // the output should be.
+                library[KnownLibraryProperties.CompileAsset] = $"{tfmFolder}/{packageSpec.Name}.dll";
+            }
+
+            // Build the path to the .xproj file
+            // If it exists add it to the library properties for the lock file
+            var projectDir = Path.GetDirectoryName(packageSpec.FilePath);
+            var xprojPath = Path.Combine(projectDir, packageSpec.Name + ".xproj");
+
+            if (File.Exists(xprojPath))
+            {
+                library[KnownLibraryProperties.MSBuildProjectPath] = xprojPath;
+            }
 
             return library;
         }

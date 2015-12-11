@@ -273,15 +273,21 @@ namespace NuGet.CommandLine
                             projectDir,
                             projectReferenceName);
 
+                        PackageSpec childSpec = null;
+
                         // Determine if this is a p2p reference with project.json
                         if (File.Exists(childProjectJson))
                         {
-                            request.ExternalProjects.Add(
-                                new ExternalProjectReference(
-                                    projectReference,
-                                    childProjectJson,
-                                    projectReferences: Enumerable.Empty<string>()));
+                            // TODO: cache these up front and share them between restores
+                            childSpec = JsonPackageSpecReader.GetPackageSpec(projectReferenceName, childProjectJson);
                         }
+
+                        request.ExternalProjects.Add(
+                                new ExternalProjectReference(
+                                    projectReferenceName,
+                                    childSpec,
+                                    msbuildProjectPath: projectReference,
+                                    projectReferences: Enumerable.Empty<string>()));
                     }
                 }
 

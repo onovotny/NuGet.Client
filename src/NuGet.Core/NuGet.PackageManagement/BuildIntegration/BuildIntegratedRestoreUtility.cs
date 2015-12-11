@@ -107,7 +107,7 @@ namespace NuGet.PackageManagement
                 // Find the full closure of project.json files and referenced projects
                 var projectReferences = await project.GetProjectReferenceClosureAsync(logger);
                 request.ExternalProjects = projectReferences
-                    .Where(reference => !string.IsNullOrEmpty(reference.PackageSpecPath))
+                    .Where(reference => reference.PackageSpec != null)
                     .Select(reference => BuildIntegratedProjectUtility.ConvertProjectReference(reference))
                     .ToList();
 
@@ -178,7 +178,7 @@ namespace NuGet.PackageManagement
             {
                 // Get all project.json file paths in the closure
                 var closure = await project.GetProjectReferenceClosureAsync();
-                var files = closure.Select(reference => reference.PackageSpecPath).ToList();
+                var files = closure.Select(reference => reference.PackageSpec.FilePath).ToList();
 
                 var projectInfo = new BuildIntegratedProjectCacheEntry(
                     project.JsonConfigPath,
@@ -364,9 +364,9 @@ namespace NuGet.PackageManagement
 
                     // find all projects which have a child reference matching the same project.json path as the target
                     if (closure.Any(reference =>
-                        !string.IsNullOrEmpty(reference.PackageSpecPath) &&
+                        reference.PackageSpec != null &&
                         string.Equals(targetProjectJson,
-                            Path.GetFullPath(reference.PackageSpecPath),
+                            Path.GetFullPath(reference.PackageSpec.FilePath),
                             StringComparison.OrdinalIgnoreCase)))
                     {
                         parents.Add(project);

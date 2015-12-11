@@ -374,8 +374,8 @@ namespace NuGet.Test
                 var project1 = new TestBuildIntegratedNuGetProject(randomConfig, msBuildNuGetProjectSystem);
                 project1.ProjectClosure = new List<BuildIntegratedProjectReference>()
             {
-                new BuildIntegratedProjectReference("a", "a/project.json", new string[] { "b/project.json" }),
-                new BuildIntegratedProjectReference("b", "b/project.json", new string[] { }),
+                CreateReference("a", "a/project.json", new string[] { "b/project.json" }),
+                CreateReference("b", "b/project.json", new string[] { }),
             };
 
                 var msBuildNuGetProjectSystem2 = new TestMSBuildNuGetProjectSystem(
@@ -395,8 +395,8 @@ namespace NuGet.Test
 
                 var projects2 = new List<BuildIntegratedNuGetProject>();
                 project1.ProjectClosure = new List<BuildIntegratedProjectReference>() {
-                new BuildIntegratedProjectReference("a", "a/project.json", new string[] { "d/project.json" }),
-                new BuildIntegratedProjectReference("d", "d/project.json", new string[] { }),
+                CreateReference("a", "a/project.json", new string[] { "d/project.json" }),
+                CreateReference("d", "d/project.json", new string[] { }),
             };
 
                 projects2.Add(project1);
@@ -448,8 +448,8 @@ namespace NuGet.Test
                 var project1 = new TestBuildIntegratedNuGetProject(randomConfig, msBuildNuGetProjectSystem);
                 project1.ProjectClosure = new List<BuildIntegratedProjectReference>()
             {
-                new BuildIntegratedProjectReference("a", "a/project.json", new string[] { "b/project.json" }),
-                new BuildIntegratedProjectReference("b", "b/project.json", new string[] { }),
+                CreateReference("a", "a/project.json", new string[] { "b/project.json" }),
+                CreateReference("b", "b/project.json", new string[] { }),
             };
 
                 var msBuildNuGetProjectSystem2 = new TestMSBuildNuGetProjectSystem(
@@ -509,8 +509,8 @@ namespace NuGet.Test
                 var project1 = new TestBuildIntegratedNuGetProject(randomConfig, msBuildNuGetProjectSystem);
                 project1.ProjectClosure = new List<BuildIntegratedProjectReference>()
             {
-                new BuildIntegratedProjectReference("a", "a/project.json", new string[] { "b/project.json" }),
-                new BuildIntegratedProjectReference("b", "b/project.json", new string[] { }),
+                CreateReference("a", "a/project.json", new string[] { "b/project.json" }),
+                CreateReference("b", "b/project.json", new string[] { }),
             };
 
                 var msBuildNuGetProjectSystem2 = new TestMSBuildNuGetProjectSystem(
@@ -563,8 +563,8 @@ namespace NuGet.Test
                 var project1 = new TestBuildIntegratedNuGetProject(randomConfig, msBuildNuGetProjectSystem);
                 project1.ProjectClosure = new List<BuildIntegratedProjectReference>()
             {
-                new BuildIntegratedProjectReference("a", "a/project.json", new string[] { "b/project.json" }),
-                new BuildIntegratedProjectReference("b", "b/project.json", new string[] { }),
+                CreateReference("a", "a/project.json", new string[] { "b/project.json" }),
+                CreateReference("b", "b/project.json", new string[] { }),
             };
 
                 var msBuildNuGetProjectSystem2 = new TestMSBuildNuGetProjectSystem(
@@ -615,8 +615,8 @@ namespace NuGet.Test
                 var project1 = new TestBuildIntegratedNuGetProject(randomConfig, msBuildNuGetProjectSystem);
                 project1.ProjectClosure = new List<BuildIntegratedProjectReference>()
             {
-                new BuildIntegratedProjectReference("a", "a/project.json", new string[] { "b/project.json" }),
-                new BuildIntegratedProjectReference("b", "b/project.json", new string[] { }),
+                CreateReference("a", "a/project.json", new string[] { "b/project.json" }),
+                CreateReference("b", "b/project.json", new string[] { }),
             };
 
                 var msBuildNuGetProjectSystem2 = new TestMSBuildNuGetProjectSystem(
@@ -639,7 +639,7 @@ namespace NuGet.Test
                 Assert.Equal(2, cache.Count);
                 Assert.Equal(2, cache["project1"].PackageSpecClosure.Count);
                 Assert.Equal(0, cache["project2"].PackageSpecClosure.Count);
-                Assert.Equal("a/project.json|b/project.json", string.Join("|", cache["project1"].PackageSpecClosure));
+                Assert.Equal("a|b", string.Join("|", cache["project1"].PackageSpecClosure));
             }
         }
 
@@ -843,6 +843,20 @@ namespace NuGet.Test
             }
 }";
 
+        private static BuildIntegratedProjectReference CreateReference(
+            string name,
+            string path,
+            IEnumerable<string> references)
+        {
+            var spec = new PackageSpec(new JObject());
+            spec.FilePath = name;
+
+            return new BuildIntegratedProjectReference(
+                name,
+                spec,
+                msbuildProjectPath: null,
+                projectReferences: references);
+        }
 
         private class TestBuildIntegratedNuGetProject : BuildIntegratedNuGetProject
         {
