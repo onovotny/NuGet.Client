@@ -43,6 +43,18 @@ namespace NuGet.ProjectModel
                 return null;
             }
 
+            // Construct the library and return it
+            var library = new Library()
+            {
+                Identity = new LibraryIdentity()
+                {
+                    Name = externalProject.UniqueName,
+                    Type = LibraryTypes.ExternalProject
+                },
+                LibraryRange = libraryRange,
+                Resolved = true,
+            };
+
             // Fill dependencies from external project references
             var dependencies = externalProject.ExternalProjectReferences.Select(s => new LibraryDependency()
                 {
@@ -55,6 +67,8 @@ namespace NuGet.ProjectModel
                     Type = LibraryDependencyType.Default
                 }).ToList();
 
+            TargetFrameworkInformation frameworkInfo = null;
+
             // Add dependencies from the project.json file
             if (externalProject.PackageSpec != null)
             {
@@ -62,39 +76,46 @@ namespace NuGet.ProjectModel
                 dependencies.AddRange(externalProject.PackageSpec.Dependencies);
 
                 // Add framework-specific dependencies
-                var frameworkInfo = externalProject.PackageSpec.GetTargetFramework(targetFramework);
+                frameworkInfo = externalProject.PackageSpec.GetTargetFramework(targetFramework);
                 if (frameworkInfo != null)
                 {
                     dependencies.AddRange(frameworkInfo.Dependencies);
+
+                    if (frameworkInfo != null)
+                    {
+                        library[KnownLibraryProperties.TargetFrameworkInformation] = frameworkInfo;
+                    }
                 }
             }
 
-            // Construct the library and return it
-            var library = new Library()
-                {
-                    Identity = new LibraryIdentity()
-                        {
-                            Name = externalProject.UniqueName,
-                            Version = new NuGetVersion("1.0.0"),
-                            Type = LibraryTypes.ExternalProject
-                        },
-                    LibraryRange = libraryRange,
-                    Dependencies = dependencies,
-                    Resolved = true,
-                };
+            // Set the dependencies
+            library.Dependencies = dependencies;
 
-            // Set the file path if it exists, this might not have a project.json file
-            library.Path = externalProject.PackageSpec?.FilePath;
+            if (externalProject.PackageSpec != null)
+            {
+                // Set the file path to project.json
+                library.Path = externalProject.PackageSpec.FilePath;
+
+                if (externalProject.MSBuildProjectPath?.EndsWith(".xproj", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    // Use the nuspec version
+                    library.Identity.Version = externalProject.PackageSpec.Version;
+
+                    // Set the compile asset
+                    var tfmFolder = frameworkInfo.FrameworkName.GetShortFolderName();
+                    library[KnownLibraryProperties.CompileAsset] = $"{tfmFolder}/{externalProject.PackageSpec.Name}.dll";
+                }
+            }
+
+            // Default to 1.0.0 if not version exists
+            if (library.Identity.Version == null)
+            {
+                library.Identity.Version = new NuGetVersion("1.0.0");
+            }
 
             if (externalProject.MSBuildProjectPath != null)
             {
                 library[KnownLibraryProperties.MSBuildProjectPath] = externalProject.MSBuildProjectPath;
-            }
-
-            if (externalProject.PackageSpec != null)
-            {
-                var targetFrameworkInfo = externalProject.PackageSpec.GetTargetFramework(targetFramework);
-                library[KnownLibraryProperties.TargetFrameworkInformation] = targetFrameworkInfo;
             }
 
             return library;

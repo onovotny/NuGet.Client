@@ -14,6 +14,95 @@ namespace NuGet.Commands.Test
     public class Project2ProjectTests
     {
         [Fact]
+        public async Task Project2Project_CSProjToXProj()
+        {
+            // Arrange
+            var sources = new List<PackageSource>();
+
+            var projectJson = @"
+            {
+                ""version"": ""1.0.0"",
+                ""dependencies"": {
+                },
+                ""frameworks"": {
+                    ""net45"": {}
+                }
+            }";
+
+            var project2Json = @"
+            {
+              ""version"": ""1.0.0-*"",
+              ""description"": ""Proj2 Class Library"",
+              ""authors"": [ ""author"" ],
+              ""tags"": [ """" ],
+              ""projectUrl"": """",
+              ""licenseUrl"": """",
+
+              ""frameworks"": {
+                ""net45"": {
+                }
+              }
+            }";
+
+            using (var packagesDir = TestFileSystemUtility.CreateRandomTestFolder())
+            using (var workingDir = TestFileSystemUtility.CreateRandomTestFolder())
+            {
+                var project1 = new DirectoryInfo(Path.Combine(workingDir, "projects", "project1"));
+                var project2 = new DirectoryInfo(Path.Combine(workingDir, "projects", "project2"));
+                project1.Create();
+                project2.Create();
+
+                File.WriteAllText(Path.Combine(project1.FullName, "project.json"), projectJson);
+                File.WriteAllText(Path.Combine(project2.FullName, "project.json"), projectJson);
+
+                File.WriteAllText(Path.Combine(project1.FullName, "project1.csproj"), string.Empty);
+                File.WriteAllText(Path.Combine(project2.FullName, "project2.xproj"), string.Empty);
+
+                var specPath1 = Path.Combine(project1.FullName, "project.json");
+                var specPath2 = Path.Combine(project2.FullName, "project.json");
+                var spec1 = JsonPackageSpecReader.GetPackageSpec(projectJson, "project1", specPath1);
+                var spec2 = JsonPackageSpecReader.GetPackageSpec(projectJson, "project2", specPath2);
+
+                var request = new RestoreRequest(spec1, sources, packagesDir);
+                request.ExternalProjects.Add(new ExternalProjectReference(
+                    "project2",
+                    spec2,
+                    Path.Combine(project2.FullName, "project2.xproj"),
+                    new string[] { }));
+
+                request.LockFilePath = Path.Combine(project1.FullName, "project.lock.json");
+                var format = new LockFileFormat();
+
+                // Act
+                var logger = new TestLogger();
+                var command = new RestoreCommand(logger, request);
+                var result = await command.ExecuteAsync();
+                result.Commit(logger);
+
+                var lockFile = format.Read(request.LockFilePath, logger);
+
+                var project2Lib = lockFile.GetLibrary("project2", NuGetVersion.Parse("1.0.0"));
+
+                var project2Target = lockFile.GetTarget(FrameworkConstants.CommonFrameworks.Net45, runtimeIdentifier: null)
+                    .Libraries
+                    .Where(lib => lib.Name == "project2")
+                    .Single();
+
+                // Assert
+                Assert.True(result.Success);
+                Assert.Equal(1, lockFile.Libraries.Count);
+
+                Assert.Equal("project", project2Lib.Type);
+                Assert.Equal("../project2/project.json", project2Lib.Path);
+                Assert.Equal("../project2/project2.xproj", project2Lib.MSBuildProject);
+
+                Assert.Equal(".NETFramework,Version=v4.5", project2Target.Framework);
+                Assert.Equal(1, project2Target.CompileTimeAssemblies.Count);
+                Assert.Equal("net45/project2.dll", project2Target.CompileTimeAssemblies.Single().Path);
+            }
+        }
+
+        [Fact]
         public async Task Project2Project_VerifyP2PWithNonProjectJsonReference()
         {
             // Arrange
@@ -214,7 +303,7 @@ namespace NuGet.Commands.Test
         }
 
         [Fact]
-        public async Task Project2Project_VerifyProjectsUnderProjectFileDependencyGroups()
+        public async Task Project2Project_VerifyProjectsReferencesInLibAndTargets()
         {
             // Arrange
             var sources = new List<PackageSource>();
@@ -322,6 +411,12 @@ namespace NuGet.Commands.Test
 
                 Assert.Equal("../project2/project2.xproj", project2Lib.MSBuildProject);
                 Assert.Equal("../project3/project3.xproj", project3Lib.MSBuildProject);
+
+                Assert.Equal(1, project2Target.CompileTimeAssemblies.Count);
+                Assert.Equal("net45/project2.dll", project2Target.CompileTimeAssemblies.Single().Path);
+
+                Assert.Equal(1, project3Target.CompileTimeAssemblies.Count);
+                Assert.Equal("net45/project3.dll", project3Target.CompileTimeAssemblies.Single().Path);
 
                 Assert.Equal(1, project2Target.Dependencies.Count);
                 Assert.Equal("project3", project2Target.Dependencies.Single().Id);
