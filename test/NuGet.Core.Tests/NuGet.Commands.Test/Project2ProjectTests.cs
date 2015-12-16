@@ -65,6 +65,12 @@ namespace NuGet.Commands.Test
 
                 var request = new RestoreRequest(spec1, sources, packagesDir);
                 request.ExternalProjects.Add(new ExternalProjectReference(
+                    "project1",
+                    spec1,
+                    Path.Combine(project1.FullName, "project1.xproj"),
+                    new string[] { "project2" }));
+
+                request.ExternalProjects.Add(new ExternalProjectReference(
                     "project2",
                     spec2,
                     Path.Combine(project2.FullName, "project2.xproj"),
@@ -138,6 +144,12 @@ namespace NuGet.Commands.Test
                 var spec1 = JsonPackageSpecReader.GetPackageSpec(projectJson, "project1", specPath1);
 
                 var request = new RestoreRequest(spec1, sources, packagesDir);
+                request.ExternalProjects.Add(new ExternalProjectReference(
+                    "project1",
+                    spec1,
+                    Path.Combine(project1.FullName, "project1.xproj"),
+                    new string[] { "project2" }));
+
                 request.ExternalProjects.Add(new ExternalProjectReference(
                     "project2",
                     null,
@@ -241,6 +253,12 @@ namespace NuGet.Commands.Test
                 var spec3 = JsonPackageSpecReader.GetPackageSpec(projectJson, "project3", specPath3);
 
                 var request = new RestoreRequest(spec1, sources, packagesDir);
+                request.ExternalProjects.Add(new ExternalProjectReference(
+                    "project1",
+                    spec1,
+                    Path.Combine(project1.FullName, "project1.xproj"),
+                    new string[] { "project2" }));
+
                 request.ExternalProjects.Add(new ExternalProjectReference(
                     "project2",
                     spec2, 

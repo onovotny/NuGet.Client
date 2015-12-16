@@ -1516,6 +1516,7 @@ namespace NuGet.Commands.Test
 
             request.ExternalProjects = new List<ExternalProjectReference>()
             {
+                new ExternalProjectReference("TestProject1", spec1, null, new string[] { "TestProject2" }),
                 new ExternalProjectReference("TestProject2", spec2, null, Enumerable.Empty<string>())
             };
 
@@ -1577,6 +1578,7 @@ namespace NuGet.Commands.Test
             request.LockFilePath = Path.Combine(testProject1Dir, "project.lock.json");
             request.ExternalProjects = new List<ExternalProjectReference>()
             {
+                new ExternalProjectReference("TestProject1", spec1, null, new string[] { "TestProject2", "TestProject3" }),
                 new ExternalProjectReference("TestProject2", spec2, null, Enumerable.Empty<string>()),
                 new ExternalProjectReference("TestProject3", spec3, null, Enumerable.Empty<string>())
             };

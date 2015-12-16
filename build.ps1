@@ -203,7 +203,7 @@ function BuildCSproj()
     & $nugetExe restore -msbuildVersion 14 .\NuGet.Clients.sln
 
     # Build the solution
-    & $msbuildExe .\NuGet.Clients.sln "/p:Configuration=$Configuration;ReleaseLabel=$ReleaseLabel;BuildNumber=$BuildNumber;RunTests=$RunTests"
+    & $msbuildExe .\NuGet.Clients.sln /m "/p:Configuration=$Configuration;ReleaseLabel=$ReleaseLabel;BuildNumber=$BuildNumber;RunTests=$RunTests;BuildInParallel=true"
 
     if ($LASTEXITCODE -ne 0)
     {

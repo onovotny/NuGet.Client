@@ -77,20 +77,24 @@ namespace NuGet.Test
                     }
 
                     // Link projects
+                    var reference0 = CreateReference(buildIntegratedProjects[0], buildIntegratedProjects[1]);
                     var reference1 = CreateReference(buildIntegratedProjects[1], buildIntegratedProjects[2]);
                     var reference2 = CreateReference(buildIntegratedProjects[2], buildIntegratedProjects[3]);
                     var reference3 = CreateReference(buildIntegratedProjects[3]);
                     var normalReference = CreateReference("myproj");
 
+                    buildIntegratedProjects[0].ProjectReferences.Add(reference0);
                     buildIntegratedProjects[0].ProjectReferences.Add(reference1);
                     buildIntegratedProjects[0].ProjectReferences.Add(reference2);
                     buildIntegratedProjects[0].ProjectReferences.Add(reference3);
                     buildIntegratedProjects[0].ProjectReferences.Add(normalReference);
 
+                    buildIntegratedProjects[1].ProjectReferences.Add(reference1);
                     buildIntegratedProjects[1].ProjectReferences.Add(reference2);
                     buildIntegratedProjects[1].ProjectReferences.Add(reference3);
                     buildIntegratedProjects[1].ProjectReferences.Add(normalReference);
 
+                    buildIntegratedProjects[2].ProjectReferences.Add(reference2);
                     buildIntegratedProjects[2].ProjectReferences.Add(reference3);
                     buildIntegratedProjects[2].ProjectReferences.Add(normalReference);
 

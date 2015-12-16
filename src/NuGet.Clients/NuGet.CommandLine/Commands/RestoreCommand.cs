@@ -115,14 +115,12 @@ namespace NuGet.CommandLine
                     for (int i = 0; currentFileIndex < restoreCount && i < newTasks; i++, currentFileIndex++)
                     {
                         var file = restoreInputs.V3RestoreFiles[currentFileIndex];
-                        HashSet<string> projectReferences = null;
-                        restoreInputs.ProjectReferenceLookup?.TryGetValue(file, out projectReferences);
 
                         var newTask = PerformNuGetV3RestoreAsync(
                             packagesDir,
                             file,
                             packageSources,
-                            projectReferences,
+                            restoreInputs.ProjectReferenceLookup,
                             repositories);
 
                         tasks.Add(newTask);
@@ -184,7 +182,7 @@ namespace NuGet.CommandLine
             string packagesDir,
             string inputPath,
             IReadOnlyCollection<Configuration.PackageSource> packageSources,
-            HashSet<string> projectReferences,
+            ProjectReferenceCache projectReferences,
             SourceRepository[] repositories)
         {
             var inputFileName = Path.GetFileName(inputPath);
@@ -222,10 +220,14 @@ namespace NuGet.CommandLine
             {
                 Console.LogVerbose($"Reading project file {inputPath}");
 
-                packageSpec = JsonPackageSpecReader.GetPackageSpec(
-                    File.ReadAllText(projectJsonPath),
-                    projectName,
-                    projectJsonPath);
+                packageSpec = projectReferences.GetProjectJson(projectJsonPath);
+
+                if (packageSpec == null)
+                {
+                    packageSpec = JsonPackageSpecReader.GetPackageSpec(
+                        projectName,
+                        projectJsonPath);
+                }
 
                 Console.LogVerbose($"Loaded project {packageSpec.Name} from {packageSpec.FilePath}");
 
@@ -262,37 +264,13 @@ namespace NuGet.CommandLine
                 // Resolve the packages directory
                 Console.LogVerbose($"Using packages directory: {request.PackagesDirectory}");
 
-                if (projectReferences != null)
-                {
-                    foreach (var projectReference in projectReferences)
-                    {
-                        var projectDir = Path.GetDirectoryName(projectReference);
-                        var projectReferenceName = Path.GetFileNameWithoutExtension(projectReference);
+                // Find all external references
+                List<ExternalProjectReference> childReferences = projectReferences.GetReferences(inputPath);
+                request.ExternalProjects.AddRange(childReferences);
 
-                        var childProjectJson = BuildIntegratedProjectUtility.GetProjectConfigPath(
-                            projectDir,
-                            projectReferenceName);
-
-                        PackageSpec childSpec = null;
-
-                        // Determine if this is a p2p reference with project.json
-                        if (File.Exists(childProjectJson))
-                        {
-                            // TODO: cache these up front and share them between restores
-                            childSpec = JsonPackageSpecReader.GetPackageSpec(projectReferenceName, childProjectJson);
-                        }
-
-                        request.ExternalProjects.Add(
-                                new ExternalProjectReference(
-                                    projectReferenceName,
-                                    childSpec,
-                                    msbuildProjectPath: projectReference,
-                                    projectReferences: Enumerable.Empty<string>()));
-                    }
-                }
-
+                // Check if we can restore based on the nuget.config settings
                 CheckRequireConsent();
-
+                
                 // Run the restore
                 var command = new NuGet.Commands.RestoreCommand(Console, request);
                 var result = await command.ExecuteAsync();
@@ -303,6 +281,7 @@ namespace NuGet.CommandLine
 
             return success;
         }
+
 
         private CommandLineSourceRepositoryProvider GetSourceRepositoryProvider()
         {
@@ -768,7 +747,7 @@ namespace NuGet.CommandLine
 
             public List<string> V3RestoreFiles { get; } = new List<string>();
 
-            public Dictionary<string, HashSet<string>> ProjectReferenceLookup { get; set; }
+            public ProjectReferenceCache ProjectReferenceLookup { get; set; }
         }
     }
 }

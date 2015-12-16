@@ -43,7 +43,8 @@ namespace NuGet.CommandLine
             ".fsproj",
             ".nproj",
             ".btproj",
-            ".dxjsproj"
+            ".dxjsproj",
+            ".xproj"
         };
 
         private Version _minClientVersionValue;

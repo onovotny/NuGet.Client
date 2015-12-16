@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -160,24 +161,16 @@ namespace NuGet.Commands
             var projectResolver = new PackageSpecResolver(_request.Project);
             var nugetRepository = Repository.Factory.GetCoreV3(_request.PackagesDirectory);
 
-            ExternalProjectReference externalProjectReference = null;
-            if (_request.ExternalProjects.Any())
+            if (!_request.ExternalProjects.Any(proj => 
+                string.Equals(_request.Project.Name, proj.UniqueName, StringComparison.OrdinalIgnoreCase))
+                && _request.ExternalProjects.Any())
             {
-                externalProjectReference = new ExternalProjectReference(
-                    _request.Project.Name,
-                    _request.Project,
-                    msbuildProjectPath: null,
-                    projectReferences:_request.ExternalProjects.Select(p => p.UniqueName));
+                // Debug.Fail("RestoreRequest.ExternaProjects contains references, but does not contain the top level references. Add the project we are restoring for.");
+                throw new InvalidOperationException($"Missing external reference metadata for {_request.Project.Name}");
             }
 
             context.ProjectLibraryProviders.Add(
-                    new PackageSpecReferenceDependencyProvider(projectResolver, externalProjectReference));
-
-            if (_request.ExternalProjects != null)
-            {
-                context.ProjectLibraryProviders.Add(
-                        new ExternalProjectReferenceDependencyProvider(_request.ExternalProjects));
-            }
+                    new PackageSpecReferenceDependencyProvider(projectResolver, _request.ExternalProjects));
 
             context.LocalLibraryProviders.Add(
                 new SourceRepositoryDependencyProvider(nugetRepository, _log, _request.CacheContext));
@@ -689,6 +682,7 @@ namespace NuGet.Commands
                         {
                             var item = new LockFileItem((string)compileAssetObject);
                             lib.CompileTimeAssemblies.Add(item);
+                            lib.RuntimeAssemblies.Add(item);
                         }
 
                         target.Libraries.Add(lib);

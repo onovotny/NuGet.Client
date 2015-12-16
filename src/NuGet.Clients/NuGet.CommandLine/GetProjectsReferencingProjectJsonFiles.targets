@@ -1,40 +1,52 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-    <Target Name="_NuGet_GetProjectsReferencingProjectJsonInternal"
-            DependsOnTargets="_SplitProjectReferencesByFileExistence"
-            Returns="@(_ProjectReferencingProjectJsonFile)">
+  <UsingTask TaskName="ProjectReferencesTask" AssemblyFile="$(NuGetTasksAssemblyPath)" />
+  <Target Name="_NuGet_GetProjectsReferencingProjectJsonInternal"
+          DependsOnTargets="_SplitProjectReferencesByFileExistence"
+          Returns="@(_ProjectReferencingProjectJsonFile)">
 
-        <PropertyGroup>
-            <EntryPointProject Condition=" '$(EntryPointProject)' == '' ">$(MsBuildProjectFullPath)</EntryPointProject>
-        </PropertyGroup>
+    <PropertyGroup>
+      <EntryPointProject Condition=" '$(EntryPointProject)' == '' ">$(MsBuildProjectFullPath)</EntryPointProject>
+    </PropertyGroup>
 
-        <ItemGroup>
-            <_ProjectReferencingProjectJsonFile
-                Include="#:$(MSBuildProjectFullPath)"
-                Condition=" '$(MSBuildProjectFullPath)' == '$(EntryPointProject)' " />
-            <_ProjectReferencingProjectJsonFile
-                Include="$(MSBuildProjectFullPath)"
-                Condition=" '$(MSBuildProjectFullPath)' != '$(EntryPointProject)' " />
-        </ItemGroup>
+    <ItemGroup>
+      <_ProjectReferencingProjectJsonFile
+          Include="$(EntryPointProject)|$(LastProject)|$(MSBuildProjectFullPath)"
+          Condition=" $(LastProject) != '' " />
+    </ItemGroup>
 
-        <!-- Filter out project references that specify ReferenceOutputAssembly=false -->
-        <ItemGroup>
-          <ValidProjectInputForNuGet Include="@(ProjectReference)" 
-              Condition=" %(ProjectReference.ReferenceOutputAssembly) == 'true' OR %(ProjectReference.ReferenceOutputAssembly) == '' " />
-        </ItemGroup>
+    <!-- Filter out project references that specify ReferenceOutputAssembly=false -->
+    <ItemGroup>
+      <ValidProjectInputForNuGet2 Include="@(ProjectReference)"
+          Condition=" %(ProjectReference.ReferenceOutputAssembly) == 'true' OR %(ProjectReference.ReferenceOutputAssembly) == '' " />
+    </ItemGroup>
 
-        <MSBuild
-          Projects="@(ValidProjectInputForNuGet)"
-          Targets="_NuGet_GetProjectsReferencingProjectJsonInternal"
-          BuildInParallel="$(BuildInParallel)"
-          Properties="
+    <!-- Process with the external task -->
+    <ProjectReferencesTask ProjectFile="$(MsBuildProjectFullPath)" InputFiles="@(ValidProjectInputForNuGet2)" >
+      <Output TaskParameter="OutputFiles" PropertyName="OutputFiles"/>
+    </ProjectReferencesTask>
+
+    <!-- convert into project items -->
+    <CreateItem
+      Include="$(OutputFiles)">
+      <Output
+          TaskParameter="Include"
+          ItemName="ValidProjectInputForNuGet"/>
+    </CreateItem>
+
+    <MSBuild
+      Projects="@(ValidProjectInputForNuGet)"
+      Targets="_NuGet_GetProjectsReferencingProjectJsonInternal"
+      BuildInParallel="$(BuildInParallel)"
+      Properties="
             %(_MSBuildProjectReferenceExistent.SetConfiguration);
             %(_MSBuildProjectReferenceExistent.SetPlatform);
-            EntryPointProject=$(EntryPointProject)"
-          RemoveProperties="%(_MSBuildProjectReferenceExistent.GlobalPropertiesToRemove)">
+            EntryPointProject=$(EntryPointProject);
+            LastProject=$(MsBuildProjectFullPath)"
+      RemoveProperties="%(_MSBuildProjectReferenceExistent.GlobalPropertiesToRemove)">
 
-            <Output
-                TaskParameter="TargetOutputs"
-                ItemName="_ProjectReferencingProjectJsonFile" />
-        </MSBuild>
-    </Target>
+      <Output
+          TaskParameter="TargetOutputs"
+          ItemName="_ProjectReferencingProjectJsonFile" />
+    </MSBuild>
+  </Target>
 </Project>
