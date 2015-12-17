@@ -44,7 +44,7 @@ namespace NuGet.ProjectModel
             foreach (var project in externalProjects)
             {
                 Debug.Assert(
-                    !_externalProjects.ContainsKey(project.UniqueName), 
+                    !_externalProjects.ContainsKey(project.UniqueName),
                     $"Duplicate project {project.UniqueName}");
 
                 if (!_externalProjects.ContainsKey(project.UniqueName))
@@ -110,22 +110,50 @@ namespace NuGet.ProjectModel
 
             if (externalReference != null)
             {
+                // External references are created without pivoting on the TxM. Here we need to account for this
+                // and filter out references except the nearest TxM.
+                var filteredExternalDependencies = new HashSet<string>(
+                    externalReference.ExternalProjectReferences,
+                    StringComparer.OrdinalIgnoreCase);
+
+                if (packageSpec != null)
+                {
+                    // Create an exclude list of all references from the non-selected TxM
+                    // Start with all framework specific references
+                    var allFrameworkDependencies = GetProjectNames(
+                        packageSpec.TargetFrameworks.SelectMany(info => info.Dependencies));
+
+                    var excludedDependencies = new HashSet<string>(
+                        allFrameworkDependencies,
+                        StringComparer.OrdinalIgnoreCase);
+
+                    // Then clear out excluded dependencies that are found in the good dependency list
+                    foreach (var dependency in GetProjectNames(dependencies))
+                    {
+                        excludedDependencies.Remove(dependency);
+                    }
+
+                    // Remove excluded dependencies from the external list
+                    foreach (var excluded in excludedDependencies)
+                    {
+                        filteredExternalDependencies.Remove(excluded);
+                    }
+                }
+
                 // Set all dependencies from project.json to external if an external match was passed in
                 // This is viral and keeps p2ps from looking into directories when we are going down
                 // a path already resolved by msbuild.
-                foreach (var dependency in dependencies)
+                foreach (var dependency in dependencies.Where(d => filteredExternalDependencies.Contains(d.Name)))
                 {
-                    if (externalReference.ExternalProjectReferences.Any(reference =>
-                        string.Equals(reference, dependency.Name, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        dependency.LibraryRange.TypeConstraint = LibraryTypes.ExternalProject;
-                    }
+                    dependency.LibraryRange.TypeConstraint = LibraryTypes.ExternalProject;
                 }
 
                 // Add dependencies passed in externally
                 // These are usually msbuild references which have less metadata, they have
                 // the lowest priority.
+                // Note: Only add in dependencies that are in the filtered list to avoid getting the wrong TxM
                 dependencies.AddRange(externalReference.ExternalProjectReferences
+                    .Where(dependencyName => filteredExternalDependencies.Contains(dependencyName))
                     .Select(reference => new LibraryDependency
                     {
                         LibraryRange = new LibraryRange
@@ -187,6 +215,7 @@ namespace NuGet.ProjectModel
             }
 
             // Remove duplicate dependencies. A reference can exist both in csproj and project.json
+            // dependencies is already ordered by importance here
             var uniqueDependencies = new List<LibraryDependency>(dependencies.Count);
             var projectNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -246,7 +275,7 @@ namespace NuGet.ProjectModel
                 library[KnownLibraryProperties.TargetFrameworkInformation] = targetFrameworkInfo;
 
                 // Add a compile asset for msbuild to xproj projects
-                if (targetFrameworkInfo.FrameworkName != null 
+                if (targetFrameworkInfo.FrameworkName != null
                     && msbuildPath?.EndsWith(".xproj", StringComparison.OrdinalIgnoreCase) == true)
                 {
                     var tfmFolder = targetFrameworkInfo.FrameworkName.GetShortFolderName();
@@ -260,6 +289,29 @@ namespace NuGet.ProjectModel
             }
 
             return library;
+        }
+
+        /// <summary>
+        /// Filter dependencies down to only possible project references and return the names.
+        /// </summary>
+        private IEnumerable<string> GetProjectNames(IEnumerable<LibraryDependency> dependencies)
+        {
+            foreach (var dependency in dependencies)
+            {
+                if (IsProject(dependency))
+                {
+                    yield return dependency.Name;
+                }
+            }
+
+            yield break;
+        }
+
+        private bool IsProject(LibraryDependency dependency)
+        {
+            var type = dependency.LibraryRange.TypeConstraint;
+
+            return SupportsType(type);
         }
     }
 }

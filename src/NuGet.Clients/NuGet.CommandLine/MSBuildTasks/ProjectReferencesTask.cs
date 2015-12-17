@@ -7,6 +7,7 @@ using System.Linq;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using NuGet.LibraryModel;
+using NuGet.ProjectManagement;
 using NuGet.ProjectModel;
 
 namespace NuGet.CommandLine.MSBuildTasks
@@ -24,6 +25,8 @@ namespace NuGet.CommandLine.MSBuildTasks
 
         [Output]
         public ITaskItem[] ToProcess { get; set; }
+
+        private const string XProj = ".xproj";
 
         public override bool Execute()
         {
@@ -45,34 +48,38 @@ namespace NuGet.CommandLine.MSBuildTasks
                 output.Add(file);
             }
 
-            if (filePath.EndsWith(".xproj", StringComparison.OrdinalIgnoreCase))
+            if (filePath.EndsWith(XProj, StringComparison.OrdinalIgnoreCase))
             {
                 var dir = Path.GetDirectoryName(filePath);
-                var projectName = Path.GetFileNameWithoutExtension(filePath);
-                var jsonPath = Path.Combine(dir, "project.json");
+                var jsonPath = Path.Combine(dir, BuildIntegratedProjectUtility.ProjectConfigFileName);
 
                 if (File.Exists(jsonPath))
                 {
                     var json = File.ReadAllText(jsonPath);
+                    var projectName = Path.GetFileNameWithoutExtension(filePath);
 
                     var spec = JsonPackageSpecReader.GetPackageSpec(json, projectName, filePath);
 
                     var resolver = new PackageSpecResolver(spec);
 
-                    var deps = new HashSet<LibraryDependency>();
-                    deps.UnionWith(spec.Dependencies);
-                    deps.UnionWith(spec.TargetFrameworks.SelectMany(f => f.Dependencies));
+                    // combine all dependencies
+                    // This will include references for every TxM, these will have to be filtered later
+                    var dependencies = new HashSet<LibraryDependency>();
+                    dependencies.UnionWith(spec.Dependencies.Where(d => IsProjectReference(d)));
+                    dependencies.UnionWith(spec.TargetFrameworks
+                        .SelectMany(f => f.Dependencies)
+                        .Where(d => IsProjectReference(d)));
 
-                    foreach (var dep in spec.Dependencies)
+                    foreach (var dependency in spec.Dependencies)
                     {
                         PackageSpec childSpec;
-                        if (resolver.TryResolvePackageSpec(dep.Name, out childSpec))
+                        if (resolver.TryResolvePackageSpec(dependency.Name, out childSpec))
                         {
                             var childPath = childSpec.FilePath;
 
                             var childDir = Path.GetDirectoryName(childPath);
                             var dirName = Path.GetFileName(childDir);
-                            var xprojPath = Path.Combine(childDir, dirName + ".xproj");
+                            var xprojPath = Path.Combine(childDir, dirName + XProj);
 
                             output.Add(xprojPath);
                         }
@@ -81,6 +88,15 @@ namespace NuGet.CommandLine.MSBuildTasks
             }
 
             return output;
+        }
+
+        private static bool IsProjectReference(LibraryDependency dependency)
+        {
+            var type = dependency.LibraryRange.TypeConstraint;
+
+            return string.IsNullOrEmpty(type)
+                || type == LibraryTypes.Project
+                || type == LibraryTypes.ExternalProject;
         }
     }
 }
