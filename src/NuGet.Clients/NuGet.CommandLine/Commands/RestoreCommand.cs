@@ -739,6 +739,11 @@ namespace NuGet.CommandLine
 
         private class PackageRestoreInputs
         {
+            public PackageRestoreInputs()
+            {
+                ProjectReferenceLookup = new ProjectReferenceCache(Enumerable.Empty<string>());
+            }
+
             public bool RestoringWithSolutionFile => !string.IsNullOrEmpty(DirectoryOfSolutionFile);
 
             public string DirectoryOfSolutionFile { get; set; }

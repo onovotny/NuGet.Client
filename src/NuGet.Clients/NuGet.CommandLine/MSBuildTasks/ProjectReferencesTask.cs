@@ -75,11 +75,8 @@ namespace NuGet.CommandLine.MSBuildTasks
                         PackageSpec childSpec;
                         if (resolver.TryResolvePackageSpec(dependency.Name, out childSpec))
                         {
-                            var childPath = childSpec.FilePath;
-
-                            var childDir = Path.GetDirectoryName(childPath);
-                            var dirName = Path.GetFileName(childDir);
-                            var xprojPath = Path.Combine(childDir, dirName + XProj);
+                            var fileInfo = new FileInfo(childSpec.FilePath);
+                            var xprojPath = Path.Combine(fileInfo.DirectoryName, fileInfo.Directory.Name + XProj);
 
                             output.Add(xprojPath);
                         }
