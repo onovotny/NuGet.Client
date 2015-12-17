@@ -241,13 +241,13 @@ namespace NuGet.ProjectModel
                 library[KnownLibraryProperties.MSBuildProjectPath] = msbuildPath;
             }
 
-            if (targetFrameworkInfo != null 
-                && msbuildPath?.EndsWith(".xproj", StringComparison.OrdinalIgnoreCase) == true)
+            if (targetFrameworkInfo != null)
             {
                 library[KnownLibraryProperties.TargetFrameworkInformation] = targetFrameworkInfo;
 
                 // Add a compile asset for msbuild to xproj projects
-                if (targetFrameworkInfo.FrameworkName != null)
+                if (targetFrameworkInfo.FrameworkName != null 
+                    && msbuildPath?.EndsWith(".xproj", StringComparison.OrdinalIgnoreCase) == true)
                 {
                     var tfmFolder = targetFrameworkInfo.FrameworkName.GetShortFolderName();
 
