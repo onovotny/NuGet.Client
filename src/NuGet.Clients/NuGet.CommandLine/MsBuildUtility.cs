@@ -67,7 +67,7 @@ namespace NuGet.CommandLine
 
                 var argumentBuilder = new StringBuilder(
                     "/t:NuGet_GetProjectsReferencingProjectJson " +
-                    "/nologo /nr:false /v:q /m /p:BuildInParallel=true " +
+                    "/nologo /nr:false /v:q /p:BuildInParallel=false " +
                     "/p:BuildProjectReferences=false");
 
                 argumentBuilder.Append(" /p:NuGetTasksAssemblyPath=");
