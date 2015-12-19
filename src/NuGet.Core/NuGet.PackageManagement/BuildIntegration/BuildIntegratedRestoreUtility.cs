@@ -29,14 +29,14 @@ namespace NuGet.PackageManagement
         /// </summary>
         public static async Task<RestoreResult> RestoreAsync(
             BuildIntegratedNuGetProject project,
-            Logging.ILogger logger,
+            BuildIntegratedProjectReferenceContext context,
             IEnumerable<SourceRepository> sources,
             string effectiveGlobalPackagesFolder,
             CancellationToken token)
         {
             return await RestoreAsync(
                 project,
-                logger,
+                context,
                 sources,
                 effectiveGlobalPackagesFolder,
                 c => { },
@@ -48,7 +48,7 @@ namespace NuGet.PackageManagement
         /// </summary>
         public static async Task<RestoreResult> RestoreAsync(
             BuildIntegratedNuGetProject project,
-            Logging.ILogger logger,
+            BuildIntegratedProjectReferenceContext context,
             IEnumerable<SourceRepository> sources,
             string effectiveGlobalPackagesFolder,
             Action<SourceCacheContext> cacheContextModifier,
@@ -58,7 +58,7 @@ namespace NuGet.PackageManagement
             var result = await RestoreAsync(
                 project,
                 project.PackageSpec,
-                logger,
+                context,
                 sources,
                 effectiveGlobalPackagesFolder,
                 cacheContextModifier,
@@ -68,7 +68,7 @@ namespace NuGet.PackageManagement
             token.ThrowIfCancellationRequested();
 
             // Write out the lock file and msbuild files
-            result.Commit(logger);
+            result.Commit(context.Logger);
 
             return result;
         }
@@ -79,13 +79,14 @@ namespace NuGet.PackageManagement
         internal static async Task<RestoreResult> RestoreAsync(
             BuildIntegratedNuGetProject project,
             PackageSpec packageSpec,
-            Logging.ILogger logger,
+            BuildIntegratedProjectReferenceContext context,
             IEnumerable<SourceRepository> sources,
             string effectiveGlobalPackagesFolder,
             Action<SourceCacheContext> cacheContextModifier,
             CancellationToken token)
         {
             // Restoring packages
+            var logger = context.Logger;
             logger.LogInformation(string.Format(CultureInfo.CurrentCulture,
                 Strings.BuildIntegratedPackageRestoreStarted,
                 project.ProjectName));
@@ -105,7 +106,7 @@ namespace NuGet.PackageManagement
                 request.ExistingLockFile = GetLockFile(lockFilePath, logger);
 
                 // Find the full closure of project.json files and referenced projects
-                var projectReferences = await project.GetProjectReferenceClosureAsync(logger);
+                var projectReferences = await project.GetProjectReferenceClosureAsync(context);
                 request.ExternalProjects = projectReferences
                     .Where(reference => reference.PackageSpec != null)
                     .Select(reference => BuildIntegratedProjectUtility.ConvertProjectReference(reference))
@@ -169,7 +170,9 @@ namespace NuGet.PackageManagement
         /// The cache entry contains the project and the closure of project.json files.
         /// </summary>
         public static async Task<Dictionary<string, BuildIntegratedProjectCacheEntry>>
-            CreateBuildIntegratedProjectStateCache(IReadOnlyList<BuildIntegratedNuGetProject> projects)
+            CreateBuildIntegratedProjectStateCache(
+                IReadOnlyList<BuildIntegratedNuGetProject> projects,
+                BuildIntegratedProjectReferenceContext context)
         {
             var cache = new Dictionary<string, BuildIntegratedProjectCacheEntry>();
 
@@ -177,7 +180,7 @@ namespace NuGet.PackageManagement
             foreach (var project in projects)
             {
                 // Get all project.json file paths in the closure
-                var closure = await project.GetProjectReferenceClosureAsync();
+                var closure = await project.GetProjectReferenceClosureAsync(context);
                 var files = closure.Select(reference => reference.PackageSpec.FilePath).ToList();
 
                 var projectInfo = new BuildIntegratedProjectCacheEntry(
@@ -327,11 +330,12 @@ namespace NuGet.PackageManagement
         /// </summary>
         public static async Task<IReadOnlyList<BuildIntegratedNuGetProject>> GetParentProjectsInClosure(
             ISolutionManager solutionManager,
-            BuildIntegratedNuGetProject target)
+            BuildIntegratedNuGetProject target,
+            BuildIntegratedProjectReferenceContext referenceContext)
         {
             var projects = solutionManager.GetNuGetProjects().OfType<BuildIntegratedNuGetProject>().ToList();
 
-            return await GetParentProjectsInClosure(projects, target);
+            return await GetParentProjectsInClosure(projects, target, referenceContext);
         }
 
         /// <summary>
@@ -339,7 +343,8 @@ namespace NuGet.PackageManagement
         /// </summary>
         public static async Task<IReadOnlyList<BuildIntegratedNuGetProject>> GetParentProjectsInClosure(
             IReadOnlyList<BuildIntegratedNuGetProject> projects,
-            BuildIntegratedNuGetProject target)
+            BuildIntegratedNuGetProject target,
+            BuildIntegratedProjectReferenceContext referenceContext)
         {
             if (projects == null)
             {
@@ -360,7 +365,7 @@ namespace NuGet.PackageManagement
                 // do not count the target as a parent
                 if (!target.Equals(project))
                 {
-                    var closure = await project.GetProjectReferenceClosureAsync();
+                    var closure = await project.GetProjectReferenceClosureAsync(referenceContext);
 
                     // find all projects which have a child reference matching the same project.json path as the target
                     if (closure.Any(reference =>
