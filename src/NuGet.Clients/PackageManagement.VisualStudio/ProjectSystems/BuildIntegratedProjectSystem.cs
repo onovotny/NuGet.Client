@@ -244,12 +244,21 @@ namespace NuGet.PackageManagement.VisualStudio
                     }
 
                     // Add the current project (include the root) to the results
-                    var packageSpec = JsonPackageSpecReader.GetPackageSpec(projectUniqueName, jsonConfigItem);
+                    PackageSpec packageSpec = null;
+                    if (File.Exists(jsonConfigItem))
+                    {
+                        // Not all projects have a project.json, only read it if it exists
+                        packageSpec = JsonPackageSpecReader.GetPackageSpec(projectUniqueName, jsonConfigItem);
+                    }
+
+                    // Find the full path to the msbuild project file
+                    var solutionDirectory = Path.GetDirectoryName(project.DTE.Solution.FullName);
+                    var projectFileFullPath = Path.GetFullPath(Path.Combine(solutionDirectory, project.UniqueName));
 
                     results.Add(new BuildIntegratedProjectReference(
                         projectUniqueName,
                         packageSpec,
-                        EnvDTEProjectUtility.GetFullPath(project),
+                        projectFileFullPath,
                         childReferences));
                 }
             }

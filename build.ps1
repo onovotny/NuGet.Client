@@ -285,16 +285,19 @@ if ((Test-Path $dnvmLoc) -eq $False)
 }
 
 ## Clean artifacts and nupkgs folder
-if (Test-Path $nupkgsDir)
+if ($Fast -eq $False)
 {
-    Trace-Log "Cleaning nupkgs folder"
-    Remove-Item $nupkgsDir\*.nupkg
-}
+    if (Test-Path $nupkgsDir)
+    {
+        Trace-Log "Cleaning nupkgs folder"
+        Remove-Item $nupkgsDir\*.nupkg
+    }
 
-if( Test-Path $artifacts)
-{
-    Trace-Log "Cleaning the artifacts folder"
-    Remove-Item $artifacts\*.* -Recurse
+    if( Test-Path $artifacts)
+    {
+        Trace-Log "Cleaning the artifacts folder"
+        Remove-Item $artifacts\*.* -Recurse
+    }
 }
 
 ## Make sure the needed DNX runtimes ex

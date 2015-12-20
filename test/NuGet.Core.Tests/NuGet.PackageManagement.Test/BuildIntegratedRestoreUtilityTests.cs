@@ -658,9 +658,9 @@ namespace NuGet.Test
 
                 // Assert
                 Assert.Equal(2, cache.Count);
-                Assert.Equal(2, cache["project1"].PackageSpecClosure.Count);
-                Assert.Equal(0, cache["project2"].PackageSpecClosure.Count);
-                Assert.Equal("a|b", string.Join("|", cache["project1"].PackageSpecClosure));
+                Assert.Equal(2, cache["project1"].ReferenceClosure.Count);
+                Assert.Equal(0, cache["project2"].ReferenceClosure.Count);
+                Assert.Equal("a|b", string.Join("|", cache["project1"].ReferenceClosure));
             }
         }
 

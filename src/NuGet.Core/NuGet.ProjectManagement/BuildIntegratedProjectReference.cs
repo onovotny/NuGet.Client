@@ -39,6 +39,7 @@ namespace NuGet.ProjectManagement
 
             Name = uniqueName;
             PackageSpec = packageSpec;
+            MSBuildProjectPath = msbuildProjectPath;
             ExternalProjectReferences = projectReferences.ToList();
         }
 

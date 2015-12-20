@@ -108,7 +108,6 @@ namespace NuGet.PackageManagement
                 // Find the full closure of project.json files and referenced projects
                 var projectReferences = await project.GetProjectReferenceClosureAsync(context);
                 request.ExternalProjects = projectReferences
-                    .Where(reference => reference.PackageSpec != null)
                     .Select(reference => BuildIntegratedProjectUtility.ConvertProjectReference(reference))
                     .ToList();
 
@@ -181,12 +180,36 @@ namespace NuGet.PackageManagement
             {
                 // Get all project.json file paths in the closure
                 var closure = await project.GetProjectReferenceClosureAsync(context);
-                var files = closure.Select(reference => reference.PackageSpec.FilePath).ToList();
+
+                var files = new List<string>();
+
+                foreach (var reference in closure)
+                {
+                    if (!string.IsNullOrEmpty(reference.MSBuildProjectPath))
+                    {
+                        files.Add(reference.MSBuildProjectPath);
+                    }
+
+                    if (reference.PackageSpec != null)
+                    {
+                        Debug.Assert(reference.PackageSpec.FilePath != null, "Empty project.json path");
+                        files.Add(reference.PackageSpec.FilePath);
+                    }
+                }
+
+                var supportsProfiles = Enumerable.Empty<string>();
+
+                if (project.PackageSpec != null)
+                {
+                    supportsProfiles = project.PackageSpec.RuntimeGraph.Supports.Keys
+                        .OrderBy(p => p, StringComparer.Ordinal)
+                        .ToArray();
+                }
 
                 var projectInfo = new BuildIntegratedProjectCacheEntry(
                     project.JsonConfigPath,
                     files,
-                    project.PackageSpec.RuntimeGraph.Supports.Keys.OrderBy(p => p, StringComparer.Ordinal).ToArray());
+                    supportsProfiles);
 
                 var uniqueName = project.GetMetadata<string>(NuGetProjectMetadataKeys.UniqueName);
 
@@ -221,8 +244,8 @@ namespace NuGet.PackageManagement
                     return true;
                 }
 
-                if (!item.Value.PackageSpecClosure.OrderBy(s => s)
-                    .SequenceEqual(projectInfo.PackageSpecClosure.OrderBy(s => s)))
+                if (!item.Value.ReferenceClosure.OrderBy(s => s)
+                    .SequenceEqual(projectInfo.ReferenceClosure.OrderBy(s => s)))
                 {
                     // The project closure has changed
                     return true;
