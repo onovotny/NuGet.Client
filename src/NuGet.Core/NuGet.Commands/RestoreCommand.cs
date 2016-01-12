@@ -828,11 +828,23 @@ namespace NuGet.Commands
         private static PackageDependency GetDependencyVersionRange(LibraryDependency dependency)
         {
             var range = dependency.LibraryRange.VersionRange;
-            
+
             if (range == null && dependency.LibraryRange.TypeConstraint == LibraryTypes.ExternalProject)
             {
                 // For csproj -> csproj type references where there is no range, use 1.0.0
                 range = VersionRange.Parse("1.0.0");
+            }
+            else if (range.HasLowerBound
+                && range.IsFloating
+                && range.Float.FloatBehavior == NuGetVersionFloatBehavior.Prerelease)
+            {
+                // Remove the snapshot version
+                // Ex: 1.0.0-* -> 1.0.0
+                // Ex: 1.0.0-rc1-* -> 1.0.0-rc1
+                var fixedMinString = range.MinVersion.ToString().TrimEnd(new char[] { '-', '.' });
+                var fixedMin = NuGetVersion.Parse(fixedMinString);
+
+                range = new VersionRange(fixedMin, range.IsMinInclusive, range.MaxVersion, range.IsMaxInclusive);
             }
 
             return new PackageDependency(dependency.Name, range);
