@@ -118,5 +118,9 @@ namespace NuGet.Frameworks
         /// Ex: .NETPlatform,Version=v0.0 -> .NETPlatform,Version=v5.0
         /// </summary>
         NuGetFramework GetFullNameReplacement(NuGetFramework framework);
+
+        IEnumerable<NuGetFramework> GetNetStandardVersions();
+
+        IEnumerable<NuGetFramework> GetCompatibleCandidates();
     }
 }

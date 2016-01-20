@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace NuGet.Frameworks
@@ -51,6 +52,10 @@ namespace NuGet.Frameworks
         private readonly Dictionary<NuGetFramework, NuGetFramework> _shortNameRewrites;
         private readonly Dictionary<NuGetFramework, NuGetFramework> _fullNameRewrites;
 
+        // NetStandard information
+        private readonly List<NuGetFramework> _netStandardVersions;
+        private readonly List<NuGetFramework> _compatibleCandidates;
+
         public FrameworkNameProvider(IEnumerable<IFrameworkMappings> mappings, IEnumerable<IPortableFrameworkMappings> portableMappings)
         {
             _identifierSynonyms = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -69,10 +74,14 @@ namespace NuGet.Frameworks
             _portableCompatibilityMappings = new Dictionary<int, HashSet<FrameworkRange>>();
             _shortNameRewrites = new Dictionary<NuGetFramework, NuGetFramework>(NuGetFramework.Comparer);
             _fullNameRewrites = new Dictionary<NuGetFramework, NuGetFramework>(NuGetFramework.Comparer);
+            _netStandardVersions = new List<NuGetFramework>();
+            _compatibleCandidates = new List<NuGetFramework>();
 
             InitMappings(mappings);
 
             InitPortableMappings(portableMappings);
+
+            InitNetStandard();
         }
 
         /// <summary>
@@ -607,6 +616,15 @@ namespace NuGet.Frameworks
             }
         }
 
+        private void InitNetStandard()
+        {
+            // populate the list of frameworks that could be compatible with NetStandard
+            AddCompatibileCandidates();
+
+            // populate the list of NetStandard versions
+            AddNetStandardVersions();
+        }
+
         private void AddShortNameRewriteMappings(IEnumerable<KeyValuePair<NuGetFramework, NuGetFramework>> mappings)
         {
             if (mappings != null)
@@ -724,25 +742,48 @@ namespace NuGet.Frameworks
             {
                 foreach (var pair in mappings)
                 {
-                    // first direction
-                    HashSet<NuGetFramework> eqFrameworks = null;
+                    var remaining = new Stack<NuGetFramework>();
+                    remaining.Push(pair.Key);
+                    remaining.Push(pair.Value);
 
-                    if (!_equivalentFrameworks.TryGetValue(pair.Key, out eqFrameworks))
+                    var seen = new HashSet<NuGetFramework>(NuGetFramework.Comparer);
+                    while (remaining.Any())
                     {
-                        eqFrameworks = new HashSet<NuGetFramework>(NuGetFramework.Comparer);
-                        _equivalentFrameworks.Add(pair.Key, eqFrameworks);
+                        var next = remaining.Pop();
+                        if (!seen.Add(next))
+                        {
+                            continue;
+                        }
+
+                        HashSet<NuGetFramework> eqFrameworks;
+                        if (!_equivalentFrameworks.TryGetValue(next, out eqFrameworks))
+                        {
+                            // initialize set
+                            eqFrameworks = new HashSet<NuGetFramework>(NuGetFramework.Comparer);
+                            _equivalentFrameworks.Add(next, eqFrameworks);
+                        }
+                        else
+                        {
+                            // explore all equivalent
+                            foreach (var framework in eqFrameworks)
+                            {
+                                remaining.Push(framework);
+                            }   
+                        }
                     }
 
-                    eqFrameworks.Add(pair.Value);
-
-                    // reverse direction
-                    if (!_equivalentFrameworks.TryGetValue(pair.Value, out eqFrameworks))
+                    // add this equivalency rule, enforcing transitivity
+                    foreach (var framework in seen)
                     {
-                        eqFrameworks = new HashSet<NuGetFramework>(NuGetFramework.Comparer);
-                        _equivalentFrameworks.Add(pair.Value, eqFrameworks);
+                        foreach (var other in seen)
+                        {
+                            if (!NuGetFramework.Comparer.Equals(framework, other))
+                            {
+                                _equivalentFrameworks[framework].Add(other);
+                            }
+                        }
                     }
 
-                    eqFrameworks.Add(pair.Key);
                 }
             }
         }
@@ -965,6 +1006,62 @@ namespace NuGet.Frameworks
             }
 
             return result;
+        }
+
+        public IEnumerable<NuGetFramework> GetNetStandardVersions()
+        {
+            return _netStandardVersions.AsReadOnly();
+        }
+
+        public IEnumerable<NuGetFramework> GetCompatibleCandidates()
+        {
+            return _compatibleCandidates.AsReadOnly();
+        }
+
+        private void AddNetStandardVersions()
+        {
+            foreach (var framework in _compatibleCandidates)
+            {
+                if (StringComparer.OrdinalIgnoreCase.Equals(framework.Framework, FrameworkConstants.FrameworkIdentifiers.NetStandard))
+                {
+                    _netStandardVersions.Add(framework);
+                }
+            }
+        }
+
+        private void AddCompatibileCandidates()
+        {
+            var set = new HashSet<NuGetFramework>(NuGetFramework.Comparer);
+            foreach (var framework in _equivalentFrameworks.Values.SelectMany(x => x))
+            {
+                set.Add(framework);
+            }
+
+            foreach (var mapping in _compatibilityMappings.SelectMany(p => p.Value))
+            {
+                set.Add(mapping.TargetFrameworkRange.Min);
+                set.Add(mapping.TargetFrameworkRange.Max);
+                set.Add(mapping.SupportedFrameworkRange.Min);
+                set.Add(mapping.SupportedFrameworkRange.Max);
+            }
+
+            foreach (var pair in _portableCompatibilityMappings)
+            {
+                var portable = new NuGetFramework(
+                    FrameworkConstants.FrameworkIdentifiers.Portable,
+                    FrameworkConstants.EmptyVersion,
+                    string.Format(NumberFormatInfo.InvariantInfo, "Profile{0}", pair.Key));
+
+                set.Add(portable);
+                foreach (var range in pair.Value)
+                {
+                    set.Add(range.Min);
+                    set.Add(range.Max);
+                }
+            }
+
+            _compatibleCandidates.AddRange(set);
+            _compatibleCandidates.Sort(new NuGetFrameworkSorter());
         }
     }
 }

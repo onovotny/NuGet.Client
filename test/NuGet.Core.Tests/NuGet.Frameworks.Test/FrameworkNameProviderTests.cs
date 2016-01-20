@@ -14,6 +14,28 @@ namespace NuGet.Test
     public class FrameworkNameProviderTests
     {
         [Fact]
+        public void FrameworkNameProvider_NetStandardVersions()
+        {
+            // Arrange
+            var provider = DefaultFrameworkNameProvider.Instance;
+
+            // Act
+            var versions = provider
+                .GetNetStandardVersions()
+                .OrderBy(f => f, new NuGetFrameworkSorter())
+                .ToArray();
+
+            // Assert
+            Assert.Equal(6, versions.Length);
+            Assert.Equal(FrameworkConstants.CommonFrameworks.NetStandard10, versions[0]);
+            Assert.Equal(FrameworkConstants.CommonFrameworks.NetStandard11, versions[1]);
+            Assert.Equal(FrameworkConstants.CommonFrameworks.NetStandard12, versions[2]);
+            Assert.Equal(FrameworkConstants.CommonFrameworks.NetStandard13, versions[3]);
+            Assert.Equal(FrameworkConstants.CommonFrameworks.NetStandard14, versions[4]);
+            Assert.Equal(FrameworkConstants.CommonFrameworks.NetStandard15, versions[5]);
+        }
+
+        [Fact]
         public void FrameworkNameProvider_DuplicateFrameworksInPrecedence()
         {
             // Arrange

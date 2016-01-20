@@ -184,6 +184,7 @@ namespace NuGet.Frameworks
         public IEnumerable<NuGetFramework> Reduce(IEnumerable<NuGetFramework> frameworks)
         {
             // order first so we get consistent results for equivalent frameworks
+            // TODO: define precedence so deprecated names don't get returned over newer names
             var input = frameworks.OrderBy(f => f.DotNetFrameworkName, StringComparer.OrdinalIgnoreCase).ToArray();
 
             var comparer = new NuGetFrameworkFullComparer();
@@ -208,8 +209,6 @@ namespace NuGet.Frameworks
                     yield return input[i];
                 }
             }
-
-            yield break;
         }
 
         /// <summary>
@@ -217,6 +216,20 @@ namespace NuGet.Frameworks
         /// Ex: net45, net403, net40 -> net45
         /// </summary>
         public IEnumerable<NuGetFramework> ReduceUpwards(IEnumerable<NuGetFramework> frameworks)
+        {
+            return ReduceUpwards(frameworks, false);
+        }
+
+        /// <summary>
+        /// Reduce to the highest framework, but only comparing frameworks with the same name
+        /// Ex: sl5, sl4, net45, net403, net40 -> net45, sl5
+        /// </summary>
+        public IEnumerable<NuGetFramework> ReduceUpwardsByName(IEnumerable<NuGetFramework> frameworks)
+        {
+            return ReduceUpwards(frameworks, true);
+        }
+
+        private IEnumerable<NuGetFramework> ReduceUpwards(IEnumerable<NuGetFramework> frameworks, bool onlyByName)
         {
             // NuGetFramework.AnyFramework is a special case
             if (frameworks.Any(e => e != NuGetFramework.AnyFramework))
@@ -227,7 +240,7 @@ namespace NuGet.Frameworks
 
             // x: net40 j: net45 -> remove net40
             // x: wp8 j: win8 -> keep wp8
-            return ReduceCore(frameworks, (x, y) => _compat.IsCompatible(y, x)).ToArray();
+            return ReduceCore(frameworks, onlyByName, (x, y) => _compat.IsCompatible(y, x)).ToArray();
         }
 
         /// <summary>
@@ -236,18 +249,38 @@ namespace NuGet.Frameworks
         /// </summary>
         public IEnumerable<NuGetFramework> ReduceDownwards(IEnumerable<NuGetFramework> frameworks)
         {
+            return ReduceDownwards(frameworks, false);
+        }
+
+        /// <summary>
+        /// Reduce to the lowest framework, but only comparing frameworks with the same name
+        /// Ex: sl5, sl4, net45, net403, net40 -> net40, sl4
+        /// </summary>
+        public IEnumerable<NuGetFramework> ReduceDownwardsByName(IEnumerable<NuGetFramework> frameworks)
+        {
+            return ReduceDownwards(frameworks, true);
+        }
+
+        private IEnumerable<NuGetFramework> ReduceDownwards(IEnumerable<NuGetFramework> frameworks, bool onlyByName)
+        {
             // NuGetFramework.AnyFramework is a special case
             if (frameworks.Any(e => e == NuGetFramework.AnyFramework))
             {
                 // Any is always the lowest
-                return new NuGetFramework[] { NuGetFramework.AnyFramework };
+                return new[] { NuGetFramework.AnyFramework };
             }
 
-            return ReduceCore(frameworks, (x, y) => _compat.IsCompatible(x, y)).ToArray();
+            return ReduceCore(frameworks, onlyByName, (x, y) => _compat.IsCompatible(x, y)).ToArray();
         }
 
-        private IEnumerable<NuGetFramework> ReduceCore(IEnumerable<NuGetFramework> frameworks, Func<NuGetFramework, NuGetFramework, bool> isCompat)
+        private IEnumerable<NuGetFramework> ReduceCore(IEnumerable<NuGetFramework> frameworks, bool onlyByName, Func<NuGetFramework, NuGetFramework, bool> isCompat)
         {
+            if (onlyByName)
+            {
+                var innerIsCompat = isCompat;
+                isCompat = (x, y) => NuGetFramework.FrameworkNameComparer.Equals(x, y) && innerIsCompat(x, y);
+            }
+
             // remove duplicate frameworks
             var input = frameworks.Distinct(_fullComparer).ToArray();
 
