@@ -135,8 +135,14 @@ namespace NuGet.Frameworks
         /// </summary>
         NuGetFramework GetFullNameReplacement(NuGetFramework framework);
 
+        /// <summary>
+        /// Returns all versions of .NETStandard.
+        /// </summary>
         IEnumerable<NuGetFramework> GetNetStandardVersions();
 
+        /// <summary>
+        /// Returns a list of frameworks that could be compatible with .NETStandard.
+        /// </summary>
         IEnumerable<NuGetFramework> GetCompatibleCandidates();
     }
 }

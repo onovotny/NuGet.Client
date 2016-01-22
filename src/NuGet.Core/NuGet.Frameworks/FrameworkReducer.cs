@@ -181,7 +181,7 @@ namespace NuGet.Frameworks
         /// <summary>
         /// Remove duplicates found in the equivalence mappings.
         /// </summary>
-        public IEnumerable<NuGetFramework> Reduce(IEnumerable<NuGetFramework> frameworks)
+        public IEnumerable<NuGetFramework> ReduceEquivalent(IEnumerable<NuGetFramework> frameworks)
         {
             // order first so we get consistent results for equivalent frameworks
             var input = frameworks
@@ -227,7 +227,7 @@ namespace NuGet.Frameworks
 
             // x: net40 j: net45 -> remove net40
             // x: wp8 j: win8 -> keep wp8
-            return ReduceCore(frameworks, false, false, (x, y) => _compat.IsCompatible(y, x)).ToArray();
+            return ReduceCore(frameworks, (x, y) => _compat.IsCompatible(y, x)).ToArray();
         }
 
         /// <summary>
@@ -236,11 +236,6 @@ namespace NuGet.Frameworks
         /// </summary>
         public IEnumerable<NuGetFramework> ReduceDownwards(IEnumerable<NuGetFramework> frameworks)
         {
-            return ReduceDownwards(frameworks, false, false);
-        }
-
-        public IEnumerable<NuGetFramework> ReduceDownwards(IEnumerable<NuGetFramework> frameworks, bool onlyByName, bool ignorePcl)
-        {
             // NuGetFramework.AnyFramework is a special case
             if (frameworks.Any(e => e == NuGetFramework.AnyFramework))
             {
@@ -248,23 +243,11 @@ namespace NuGet.Frameworks
                 return new[] { NuGetFramework.AnyFramework };
             }
 
-            return ReduceCore(frameworks, onlyByName, ignorePcl, (x, y) => _compat.IsCompatible(x, y)).ToArray();
+            return ReduceCore(frameworks, (x, y) => _compat.IsCompatible(x, y)).ToArray();
         }
 
-        private IEnumerable<NuGetFramework> ReduceCore(IEnumerable<NuGetFramework> frameworks, bool onlyByName, bool ignorePcl, Func<NuGetFramework, NuGetFramework, bool> isCompat)
+        private IEnumerable<NuGetFramework> ReduceCore(IEnumerable<NuGetFramework> frameworks, Func<NuGetFramework, NuGetFramework, bool> isCompat)
         {
-            if (ignorePcl)
-            {
-                var innerIsCompat = isCompat;
-                isCompat = (x, y) => !x.IsPCL && !y.IsPCL && innerIsCompat(x, y);
-            }
-
-            if (onlyByName)
-            {
-                var innerIsCompat = isCompat;
-                isCompat = (x, y) => NuGetFramework.FrameworkNameComparer.Equals(x, y) && innerIsCompat(x, y);
-            }
-
             // remove duplicate frameworks
             var input = frameworks.Distinct(_fullComparer).ToArray();
 
@@ -341,7 +324,7 @@ namespace NuGet.Frameworks
 
             // reduce the sub frameworks - this would only have an effect if the PCL is 
             // poorly formed and contains duplicates such as portable-win8+win81
-            subFrameworks = Reduce(subFrameworks);
+            subFrameworks = ReduceEquivalent(subFrameworks);
 
             // Find all frameworks in all PCLs
             var pclToFrameworks = ExplodePortableFrameworks(reduced);

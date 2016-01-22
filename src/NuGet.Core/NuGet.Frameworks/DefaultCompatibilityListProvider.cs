@@ -1,6 +1,7 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -30,11 +31,23 @@ namespace NuGet.Frameworks
                 .GetCompatibleCandidates()
                 .Where(candidate => _compatibilityProvider.IsCompatible(candidate, target));
 
-            remaining = _reducer.ReduceDownwards(remaining, true, true);
+            remaining = _reducer.ReduceEquivalent(remaining);
 
-            remaining = _reducer.Reduce(remaining);
+            remaining = ReduceDownwards(remaining);
 
             return remaining;
+        }
+
+        private IEnumerable<NuGetFramework> ReduceDownwards(IEnumerable<NuGetFramework> frameworks)
+        {
+            // This is a simplified reduce downwards that does not reduce frameworks with
+            // different names or PCL frameworks.
+            var lookup = frameworks.ToLookup(f => f.IsPCL);
+            return lookup[false]
+                .GroupBy(f => f.Framework, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.Aggregate((a, b) => a.Version < b.Version ? a : b))
+                .Concat(lookup[true]);
+
         }
 
         private static IFrameworkCompatibilityListProvider _instance;

@@ -764,7 +764,7 @@ namespace NuGet.Test
 
             var all = new NuGetFramework[] { framework1, framework2 };
 
-            var result = reducer.Reduce(all);
+            var result = reducer.ReduceEquivalent(all);
 
             Assert.Equal(framework1, result.Single());
         }
@@ -780,7 +780,7 @@ namespace NuGet.Test
 
             var all = new NuGetFramework[] { sl3wp, wp7, win81 };
 
-            var result = reducer.Reduce(all);
+            var result = reducer.ReduceEquivalent(all);
 
             Assert.Equal(2, result.Count());
             Assert.Equal(win81, result.First());
@@ -801,7 +801,7 @@ namespace NuGet.Test
 
             var all = new NuGetFramework[] { win, win8, netcore45, winrt45, winrt, net45 };
 
-            var result = reducer.Reduce(all);
+            var result = reducer.ReduceEquivalent(all);
 
             Assert.Equal(2, result.Count());
             Assert.Equal(win8, result.First());
@@ -818,7 +818,7 @@ namespace NuGet.Test
 
             var all = new NuGetFramework[] { sl3wp, wp7 };
 
-            var result = reducer.Reduce(all);
+            var result = reducer.ReduceEquivalent(all);
 
             Assert.Equal(wp7, result.Single());
         }
