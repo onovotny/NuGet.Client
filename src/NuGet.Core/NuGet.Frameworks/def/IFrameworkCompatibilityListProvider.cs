@@ -8,7 +8,5 @@ namespace NuGet.Frameworks
     public interface IFrameworkCompatibilityListProvider
     {
         IEnumerable<NuGetFramework> GetFrameworksSupporting(NuGetFramework target);
-
-        IEnumerable<NuGetFramework> GetSupportedFrameworks(NuGetFramework candidate);
     }
 }

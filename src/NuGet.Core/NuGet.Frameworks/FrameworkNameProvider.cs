@@ -48,6 +48,9 @@ namespace NuGet.Frameworks
         // framework ordering (for package based frameworks)
         private readonly Dictionary<string, int> _packageBasedFrameworkPrecedence;
 
+        // framework ordering (when choosing between equivalent frameworks)
+        private readonly Dictionary<string, int> _equivalentFrameworkPrecedence;
+
         // Rewrite mappings
         private readonly Dictionary<NuGetFramework, NuGetFramework> _shortNameRewrites;
         private readonly Dictionary<NuGetFramework, NuGetFramework> _fullNameRewrites;
@@ -70,6 +73,7 @@ namespace NuGet.Frameworks
             _subSetFrameworks = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
             _nonPackageBasedFrameworkPrecedence = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             _packageBasedFrameworkPrecedence = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            _equivalentFrameworkPrecedence = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             _compatibilityMappings = new Dictionary<string, HashSet<OneWayCompatibilityMappingEntry>>(StringComparer.OrdinalIgnoreCase);
             _portableCompatibilityMappings = new Dictionary<int, HashSet<FrameworkRange>>();
             _shortNameRewrites = new Dictionary<NuGetFramework, NuGetFramework>(NuGetFramework.Comparer);
@@ -590,6 +594,7 @@ namespace NuGet.Frameworks
                     // add framework ordering rules
                     AddFrameworkPrecedenceMappings(_nonPackageBasedFrameworkPrecedence, mapping.NonPackageBasedFrameworkPrecedence);
                     AddFrameworkPrecedenceMappings(_packageBasedFrameworkPrecedence, mapping.PackageBasedFrameworkPrecedence);
+                    AddFrameworkPrecedenceMappings(_equivalentFrameworkPrecedence, mapping.EquivalentFrameworkPrecedence);
 
                     // add rewrite rules
                     AddShortNameRewriteMappings(mapping.ShortNameReplacements);
@@ -940,25 +945,8 @@ namespace NuGet.Frameworks
             return false;
         }
 
-        /// <summary>
-        /// The ascending order of frameworks should be based on the the following ordered groups:
-        /// 
-        /// 1. Non-package-based frameworks in <see cref="IFrameworkMappings.NonPackageBasedFrameworkPrecedence"/>.
-        /// 2. Other non-package-based frameworks.
-        /// 3. Package-based frameworks in <see cref="IFrameworkMappings.PackageBasedFrameworkPrecedence"/>.
-        /// 4. Other package-based frameworks.
-        /// 
-        /// For group #1 and #3, the order within the group is based on the order of the respective precedence list.
-        /// For group #2 and #4, the order is the original order in the incoming list. This should later be made
-        /// consistent between different input orderings by using the <see cref="NuGetFrameworkSorter"/>.
-        /// </summary>
         public int CompareFrameworks(NuGetFramework x, NuGetFramework y)
         {
-            if (StringComparer.OrdinalIgnoreCase.Equals(x.Framework, y.Framework))
-            {
-                return 0;
-            }
-
             if (x.IsPackageBased != y.IsPackageBased)
             {
                 // non-package based always come before package based
@@ -966,6 +954,21 @@ namespace NuGet.Frameworks
             }
 
             var precedence = x.IsPackageBased ? _packageBasedFrameworkPrecedence : _nonPackageBasedFrameworkPrecedence;
+
+            return CompareUsingPrecedence(x, y, precedence);
+        }
+
+        public int CompareEquivalentFrameworks(NuGetFramework x, NuGetFramework y)
+        {
+            return CompareUsingPrecedence(x, y, _equivalentFrameworkPrecedence);
+        }
+
+        private static int CompareUsingPrecedence(NuGetFramework x, NuGetFramework y, Dictionary<string, int> precedence)
+        {
+            if (StringComparer.OrdinalIgnoreCase.Equals(x.Framework, y.Framework))
+            {
+                return 0;
+            }
 
             int xIndex;
             if (!precedence.TryGetValue(x.Framework, out xIndex))
@@ -981,6 +984,7 @@ namespace NuGet.Frameworks
 
             return xIndex.CompareTo(yIndex);
         }
+
 
         public NuGetFramework GetShortNameReplacement(NuGetFramework framework)
         {

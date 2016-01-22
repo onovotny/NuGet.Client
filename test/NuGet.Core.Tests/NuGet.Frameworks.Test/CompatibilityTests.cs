@@ -21,9 +21,8 @@ namespace NuGet.Test
                 .GetNetStandardVersions()
                 .Select(s => new
                 {
-                    NetStandard = s.GetShortFolderName(),
-                    Supporting = compat.GetFrameworksSupporting(s).Select(f => f.ToString()),
-                    Supported = compat.GetSupportedFrameworks(s).Select(f => f.ToString())
+                    NetStandard = s.ToString(),
+                    Supporting = compat.GetFrameworksSupporting(s).Select(f => f.ToString())
                 });
 
             var json = JsonConvert.SerializeObject(obj, Formatting.Indented);

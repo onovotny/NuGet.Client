@@ -30,20 +30,7 @@ namespace NuGet.Frameworks
                 .GetCompatibleCandidates()
                 .Where(candidate => _compatibilityProvider.IsCompatible(candidate, target));
 
-            remaining = _reducer.ReduceDownwardsByName(remaining);
-
-            remaining = _reducer.Reduce(remaining);
-
-            return remaining;
-        }
-
-        public IEnumerable<NuGetFramework> GetSupportedFrameworks(NuGetFramework candidate)
-        {
-            var remaining = _nameProvider
-                .GetCompatibleCandidates()
-                .Where(target => _compatibilityProvider.IsCompatible(candidate, target));
-
-            remaining = _reducer.ReduceUpwardsByName(remaining);
+            remaining = _reducer.ReduceDownwards(remaining, true, true);
 
             remaining = _reducer.Reduce(remaining);
 
