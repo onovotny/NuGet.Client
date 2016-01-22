@@ -1036,11 +1036,14 @@ namespace NuGet.Frameworks
         private void AddCompatibileCandidates()
         {
             var set = new HashSet<NuGetFramework>(NuGetFramework.Comparer);
+
+            // equivalent
             foreach (var framework in _equivalentFrameworks.Values.SelectMany(x => x))
             {
                 set.Add(framework);
             }
 
+            // compatible
             foreach (var mapping in _compatibilityMappings.SelectMany(p => p.Value))
             {
                 set.Add(mapping.TargetFrameworkRange.Min);
@@ -1049,6 +1052,7 @@ namespace NuGet.Frameworks
                 set.Add(mapping.SupportedFrameworkRange.Max);
             }
 
+            // portable compatible
             foreach (var pair in _portableCompatibilityMappings)
             {
                 var portable = new NuGetFramework(
@@ -1061,6 +1065,38 @@ namespace NuGet.Frameworks
                 {
                     set.Add(range.Min);
                     set.Add(range.Max);
+                }
+            }
+
+            // subset and superset
+            var superSetFrameworks = _subSetFrameworks
+                .SelectMany(p => p.Value.Select(subset => new { Superset = p.Key, Subset = subset }))
+                .GroupBy(p => p.Subset, p => p.Superset, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => new HashSet<string>(g, StringComparer.OrdinalIgnoreCase));
+
+            foreach (var framework in set.ToArray())
+            {
+                if (framework.HasProfile)
+                {
+                    continue;
+                }
+
+                HashSet<string> subset;
+                if (_subSetFrameworks.TryGetValue(framework.Framework, out subset))
+                {
+                    foreach (var subFramework in subset)
+                    {
+                        set.Add(new NuGetFramework(subFramework, framework.Version, framework.Profile));
+                    }
+                }
+
+                HashSet<string> superset;
+                if (superSetFrameworks.TryGetValue(framework.Framework, out superset))
+                {
+                    foreach (var superFramework in superset)
+                    {
+                        set.Add(new NuGetFramework(superFramework, framework.Version, framework.Profile));
+                    }
                 }
             }
 

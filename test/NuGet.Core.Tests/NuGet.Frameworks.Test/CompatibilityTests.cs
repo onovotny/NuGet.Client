@@ -1,10 +1,6 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Linq;
-using System.Text;
-using Newtonsoft.Json;
 using NuGet.Frameworks;
 using Xunit;
 
@@ -12,22 +8,6 @@ namespace NuGet.Test
 {
     public class CompatibilityTests
     {
-        [Fact]
-        public void Sandbox()
-        {
-            var compat = DefaultCompatibilityListProvider.Instance;
-            var obj = DefaultFrameworkNameProvider
-                .Instance
-                .GetNetStandardVersions()
-                .Select(s => new
-                {
-                    NetStandard = s.ToString(),
-                    Supporting = compat.GetFrameworksSupporting(s).Select(f => f.ToString())
-                });
-
-            var json = JsonConvert.SerializeObject(obj, Formatting.Indented);
-        }
-
         [Theory]
         // dotnet
         [InlineData("dotnet", "dotnet", true)]
