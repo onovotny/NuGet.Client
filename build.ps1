@@ -59,7 +59,7 @@ param (
 
 If (-Not $SkipDelaySigning)
 {
-    & "$PSScriptRoot\scripts\utils\DisableStrongNameVerification.ps1" -skipNoOpMessage
+  #  & "$PSScriptRoot\scripts\utils\DisableStrongNameVerification.ps1" -skipNoOpMessage
 }
 
 if (-not $Configuration) {
@@ -84,6 +84,8 @@ if (-not $VSToolsetInstalled) {
     Warning-Log "The build is requested, but no toolset is available"
     exit 1
 }
+
+$currentDirectory = split-path $MyInvocation.MyCommand.Definition
 
 $BuildErrors = @()
 
@@ -115,7 +117,7 @@ Invoke-BuildStep 'Running Restore' {
     Trace-Log ". `"$MSBuildExe`" $args"
     & $MSBuildExe @args
 
-    $args = "build\build.proj", "/t:RestoreVS", "/p:Configuration=$Configuration", "/p:ReleaseLabel=$ReleaseLabel", "/p:BuildNumber=$BuildNumber", "/v:m", "/m:1"
+    $args = "build\build.proj", "/t:RestoreVS", "/p:Configuration=$Configuration", "/p:ReleaseLabel=$ReleaseLabel", "/p:BuildNumber=$BuildNumber", "/v:m", "/m:1", "/p:MS_PFX_PATH=$currentDirectory\keys\35MSSharedLib1024.snk", "/p:NUGET_PFX_PATH=$currentDirectory\keys\NuGetKey.snk"
     if ($Binlog)
     {
         $args += "-bl:msbuild.restore.binlog"
@@ -134,12 +136,12 @@ Invoke-BuildStep 'Running Restore' {
 
 Invoke-BuildStep $VSMessage {
 
-    $args = 'build\build.proj', "/t:$VSTarget", "/p:Configuration=$Configuration", "/p:ReleaseLabel=$ReleaseLabel", "/p:BuildNumber=$BuildNumber", '/v:m', '/m:1'
+    $args = 'build\build.proj', "/t:$VSTarget", "/p:Configuration=$Configuration", "/p:ReleaseLabel=$ReleaseLabel", "/p:BuildNumber=$BuildNumber", '/v:m', '/m:1', "/p:MS_PFX_PATH=$currentDirectory\keys\35MSSharedLib1024.snk", "/p:NUGET_PFX_PATH=$currentDirectory\keys\NuGetKey.snk"
 
     If ($SkipDelaySigning)
     {
-        $args += "/p:MS_PFX_PATH="
-        $args += "/p:NUGET_PFX_PATH="
+        #$args += "/p:MS_PFX_PATH="
+        #$args += "/p:NUGET_PFX_PATH="
     }
 
     if ($Binlog)
@@ -173,7 +175,7 @@ Invoke-BuildStep 'Publishing the EndToEnd test package' {
 Invoke-BuildStep 'Running Restore RTM' {
 
     # Restore for VS
-    $args = "build\build.proj", "/t:RestoreVS", "/p:Configuration=$Configuration", "/p:BuildRTM=true", "/p:ReleaseLabel=$ReleaseLabel", "/p:BuildNumber=$BuildNumber", "/p:ExcludeTestProjects=true", "/v:m", "/m:1"
+    $args = "build\build.proj", "/t:RestoreVS", "/p:Configuration=$Configuration", "/p:BuildRTM=true", "/p:ReleaseLabel=$ReleaseLabel", "/p:BuildNumber=$BuildNumber", "/p:ExcludeTestProjects=true", "/v:m", "/m:1", "/p:MS_PFX_PATH=$currentDirectory\keys\35MSSharedLib1024.snk", "/p:NUGET_PFX_PATH=$currentDirectory\keys\NuGetKey.snk"
 
     if ($Binlog)
     {
@@ -196,7 +198,7 @@ Invoke-BuildStep 'Running Restore RTM' {
 Invoke-BuildStep 'Packing RTM' {
 
     # Build and (If not $SkipUnitTest) Pack, Core unit tests, and Unit tests for VS
-    $args = "build\build.proj", "/t:BuildVS`;Pack", "/p:Configuration=$Configuration", "/p:BuildRTM=true", "/p:ReleaseLabel=$ReleaseLabel", "/p:BuildNumber=$BuildNumber", "/p:ExcludeTestProjects=true", "/v:m", "/m:1"
+    $args = "build\build.proj", "/t:BuildVS`;Pack", "/p:Configuration=$Configuration", "/p:BuildRTM=true", "/p:ReleaseLabel=$ReleaseLabel", "/p:BuildNumber=$BuildNumber", "/p:ExcludeTestProjects=true", "/v:m", "/m:1", "/p:MS_PFX_PATH=$currentDirectory\keys\35MSSharedLib1024.snk", "/p:NUGET_PFX_PATH=$currentDirectory\keys\NuGetKey.snk"
     if ($Binlog)
     {
         $args += "-bl:msbuild.pack.binlog"
