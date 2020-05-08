@@ -12,6 +12,7 @@
     <RestoreNuGetPackages>true</RestoreNuGetPackages>
     <AssemblyOriginatorKeyFile>$(MS_PFX_PATH)</AssemblyOriginatorKeyFile>
     <StrongNameCert>MsSharedLib72</StrongNameCert>
+    <DerministicSourcePaths>false</DerministicSourcePaths>
   </PropertyGroup>
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
